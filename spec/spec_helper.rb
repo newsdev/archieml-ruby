@@ -1,0 +1,2 @@
+require 'archieml'
+require 'rspec'
