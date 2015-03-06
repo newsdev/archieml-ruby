@@ -167,6 +167,10 @@ end
 aml = Archieml.load(html_aml)
 ```
 
+## Tests
+
+There is a full test suite using rspec. `bundle install`, and then `rspec` to execute them.
+
 ## Changelog
 
 * `0.1.0` - Initial release supporting the first version of the ArchieML spec, published [2015-03-06](http://archieml.org/spec/1.0/CR-20150306.html).
