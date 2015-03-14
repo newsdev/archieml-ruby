@@ -119,6 +119,7 @@ module Archieml
 
         if scope_type == '['
           @array = key_scope[key_bits.last] ||= []
+          @array = key_scope[key_bits.last] = [] if @array.class == String
 
           if @array.length > 0
             @array_type = @array.first.class == String ? 'simple' : 'complex'

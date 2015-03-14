@@ -263,6 +263,9 @@ describe Archieml::Loader do
     it "escapes only one initial backslash" do
       @loader.load("key:value\n\\\\\\:end\n:end")['key'].should == "value\n\\\\:end"
     end
+    it "allows escaping multiple lines in a value" do
+      @loader.load("key:value\n\\:end\n\\:ignore\n\\:endskip\n\\:skip\n:end'")['key'].should == "value\n:end\n:ignore\n:endskip\n:skip"
+    end
     it "doesn't escape colons after beginning of lines" do
       @loader.load("key:value\nLorem key2\\:value\n:end")['key'].should == "value\nLorem key2\\:value"
     end
@@ -433,6 +436,9 @@ describe Archieml::Loader do
     it "simple arrays that are reopened remain simple" do
       @loader.load("[array]\n*Value\n[]\n[array]\nkey:value")['array'].should == ['Value']
     end
+    it "simple arrays overwrite existing keys" do
+      @loader.load("a.b:complex value\n[a.b]\n*simple value")['a']['b'][0].should == 'simple value'
+    end
 
   end
 
@@ -460,6 +466,9 @@ describe Archieml::Loader do
     end
     it "complex arrays that are reopened remain complex" do
       @loader.load("[array]\nkey:value\n[]\n[array]\n*Value")['array'].should == [{'key' => 'value'}]
+    end
+    it "complex arrays overwrite existing keys" do
+      @loader.load("a.b:complex value\n[a.b]\nkey:value")['a']['b'][0]['key'].should == 'value'
     end
 
   end
