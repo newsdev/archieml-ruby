@@ -56,10 +56,10 @@ describe Archieml::Loader do
       @loader.load("scope.key:value\nscope.otherkey:value")['scope']['key'].should == 'value'
       @loader.load("scope.key:value\nscope.otherkey:value")['scope']['otherkey'].should == 'value'
     end
-    it "the value of key that used to be a parent object should be replaced with a string if necessary" do
+    it "the value of key that used to be a string should be replaced with an object if necessary" do
       @loader.load("scope.level:value\nscope.level.level:value")['scope']['level']['level'].should == 'value'
     end
-    it "the value of key that used to be a string object should be replaced with an object if necessary" do
+    it "the value of key that used to be a parent object should be replaced with a string if necessary" do
       @loader.load("scope.level.level:value\nscope.level:value")['scope']['level'].should == 'value'
     end
 
