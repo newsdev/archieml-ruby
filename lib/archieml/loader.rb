@@ -3,9 +3,9 @@ module Archieml
 
     NEXT_LINE     = /.*((\r|\n)+)/
     START_KEY     = /^\s*([A-Za-z0-9\-_\.]+)[ \t\r]*:[ \t\r]*(.*(?:\n|\r|$))/
-    COMMAND_KEY   = /^\s*:[ \t\r]*(endskip|ignore|skip|end)/i
+    COMMAND_KEY   = /^\s*:[ \t\r]*(endskip|ignore|skip|end)(.*(?:\n|\r|$))/i
     ARRAY_ELEMENT = /^\s*\*[ \t\r]*(.*(?:\n|\r|$))/
-    SCOPE_PATTERN = /^\s*(\[|\{)[ \t\r]*([A-Za-z0-9\-_\.]*)[ \t\r]*(?:\]|\})[ \t\r]*.*?(\n|\r|$)/
+    SCOPE_PATTERN = /^\s*(\[|\{)[ \t\r]*([A-Za-z0-9\-_\.]*)[ \t\r]*(?:\]|\}).*?(\n|\r|$)/
 
     def initialize
       @data = @scope = {}
@@ -99,8 +99,6 @@ module Archieml
       when "endskip"
         @is_skipping = false
       end
-
-      self.flush_buffer!
     end
 
     def parse_scope(scope_type, scope_key)
@@ -166,7 +164,7 @@ module Archieml
     end
 
     def flush_scope!
-      @array = @array_type = @array_first_key = nil
+      @array = @array_type = @array_first_key = @buffer_key = nil
     end
 
     # type can be either :replace or :append.

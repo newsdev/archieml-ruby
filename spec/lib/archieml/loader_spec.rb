@@ -257,6 +257,18 @@ describe Archieml::Loader do
       @loader.load("key:value\n\\[comment]\n:end")['key'].should == "value"
       @loader.load("key:value\n\\[[array]]\n:end")['key'].should == "value\n[array]"
     end
+    it "arrays within a multi-line value breaks up the value" do
+      @loader.load("key:value\ntext\n[array]\nmore text\n:end")['key'].should == "value"
+    end
+    it "objects within a multi-line value breaks up the value" do
+      @loader.load("key:value\ntext\n{scope}\nmore text\n:end")['key'].should == "value"
+    end
+    it "bullets within a multi-line value do not break up the value" do
+      @loader.load("key:value\ntext\n* value\nmore text\n:end")['key'].should == "value\ntext\n* value\nmore text"
+    end
+    it "skips within a multi-line value do not break up the value" do
+      @loader.load("key:value\ntext\n:skip\n:endskip\nmore text\n:end")['key'].should == "value\ntext\nmore text"
+    end
     it "allows escaping initial backslash at the beginning of lines" do
       @loader.load("key:value\n\\\\:end\n:end")['key'].should == "value\n\\:end"
     end
@@ -430,6 +442,21 @@ describe Archieml::Loader do
     it "does not allow escaping of colons not at the beginning of lines" do
       @loader.load("[array]\n*Value\nword key\\:value\n:end")['array'].first.should == "Value\nword key\\:value"
     end
+    it "arrays within a multi-line value breaks up the value" do
+      @loader.load("[array]\n* value\n[array]\nmore text\n:end")['array'].first.should == "value"
+    end
+    it "objects within a multi-line value breaks up the value" do
+      @loader.load("[array]\n* value\n{scope}\nmore text\n:end")['array'].first.should == "value"
+    end
+    it "key/values within a multi-line value do not break up the value" do
+      @loader.load("[array]\n* value\nkey: value\nmore text\n:end")['array'].first.should == "value\nkey: value\nmore text"
+    end
+    it "bullets within a multi-line value break up the value" do
+      @loader.load("[array]\n* value\n* value\nmore text\n:end")['array'].first.should == "value"
+    end
+    it "skips within a multi-line value do not break up the value" do
+      @loader.load("[array]\n* value\n:skip\n:endskip\nmore text\n:end")['array'].first.should == "value\nmore text"
+    end
     it "arrays that are reopened add to existing array" do
       @loader.load("[array]\n*Value\n[]\n[array]\n*Value")['array'].should == ['Value', 'Value']
     end
@@ -460,6 +487,21 @@ describe Archieml::Loader do
     end
     it "duplicate keys must match on dot-notation scope" do
       @loader.load("[array]\nscope.key:value\nkey:value\notherscope.key:value")['array'].length.should == 1
+    end
+    it "arrays within a multi-line value breaks up the value" do
+      @loader.load("[array]\nkey:value\n[array]\nmore text\n:end")['array'].first['key'].should == "value"
+    end
+    it "objects within a multi-line value breaks up the value" do
+      @loader.load("[array]\nkey:value\n{scope}\nmore text\n:end")['array'].first['key'].should == "value"
+    end
+    it "key/values within a multi-line value break up the value" do
+      @loader.load("[array]\nkey:value\nother: value\nmore text\n:end")['array'].first['key'].should == "value"
+    end
+    it "bullets within a multi-line value do not break up the value" do
+      @loader.load("[array]\nkey:value\n* value\nmore text\n:end")['array'].first['key'].should == "value\n* value\nmore text"
+    end
+    it "skips within a multi-line value do not break up the value" do
+      @loader.load("[array]\nkey:value\n:skip\n:endskip\nmore text\n:end")['array'].first['key'].should == "value\nmore text"
     end
     it "arrays that are reopened add to existing array" do
       @loader.load("[array]\nkey:value\n[]\n[array]\nkey:value")['array'].length.should == 2
