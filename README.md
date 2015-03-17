@@ -4,7 +4,7 @@ Parse Archie Markup Language (ArchieML) documents into Ruby Hashes.
 
 Read about the ArchieML specification at [archieml.org](http://archieml.org).
 
-The current version is `v0.1.0`.
+The current version is `v0.1.1`.
 
 ## Installation
 
@@ -173,4 +173,5 @@ There is a full test suite using rspec. `bundle install`, and then `rspec` to ex
 
 ## Changelog
 
+* `0.1.1` - More consistent handling of newlines. Fixed bugs around detecting the scope of multi-line values.
 * `0.1.0` - Initial release supporting the first version of the ArchieML spec, published [2015-03-06](http://archieml.org/spec/1.0/CR-20150306.html).
