@@ -7,7 +7,7 @@ module Archieml
     ARRAY_ELEMENT = /^\s*\*[ \t\r]*(.*(?:\n|\r|$))/
     SCOPE_PATTERN = /^\s*(\[|\{)[ \t\r]*([A-Za-z0-9\-_\.]*)[ \t\r]*(?:\]|\}).*?(\n|\r|$)/
 
-    def initialize
+    def initialize(options = {})
       @data = @scope = {}
 
       @buffer_scope  = @buffer_key = nil
@@ -16,10 +16,17 @@ module Archieml
       @is_skipping  = false
       @done_parsing = false
 
+      @default_options = {
+        comments: true,
+        case_sensitive: false
+      }.merge(options)
+
       self.flush_scope!
     end
 
-    def load(stream)
+    def load(stream, options = {})
+      @options = @default_options.merge(options)
+
       stream.each_line do |line|
         return @data if @done_parsing
 
@@ -174,8 +181,10 @@ module Archieml
     # by prepending the line with a backslash.
     # (:, [, {, *, \) surrounding the first token of any line.
     def format_value(value, type)
-      value.gsub!(/(?:^\\)?\[[^\[\]\n\r]*\](?!\])/, '') # remove comments
-      value.gsub!(/\[\[([^\[\]\n\r]*)\]\]/, '[\1]') # [[]] => []
+      if @options[:comments]
+        value.gsub!(/(?:^\\)?\[[^\[\]\n\r]*\](?!\])/, '') # remove comments
+        value.gsub!(/\[\[([^\[\]\n\r]*)\]\]/, '[\1]') # [[]] => []
+      end
 
       if type == :append
         value.gsub!(/^(\s*)\\/, '\1')
