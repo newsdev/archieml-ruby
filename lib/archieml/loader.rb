@@ -131,7 +131,7 @@ module Archieml
           end
 
         elsif scope_type == '{'
-          @scope = key_scope[key_bits.last] ||= {}
+          @scope = key_scope[key_bits.last] = key_scope[key_bits.last].is_a?(Hash) ? key_scope[key_bits.last] : {}
         end
       end
     end
