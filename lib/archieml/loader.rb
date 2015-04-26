@@ -71,6 +71,7 @@ module Archieml
       @buffer_string = rest_of_line
 
       self.flush_buffer_into(key, replace: true)
+      @buffer_key = key
     end
 
     def parse_array_element(value)
@@ -85,6 +86,7 @@ module Archieml
       @buffer_key = @array
       @buffer_string = value
       self.flush_buffer_into(@array, replace: true)
+      @buffer_key = @array
     end
 
     def parse_command_key(command)
@@ -106,6 +108,8 @@ module Archieml
       when "endskip"
         @is_skipping = false
       end
+
+      self.flush_buffer!
     end
 
     def parse_scope(scope_type, scope_key)
@@ -123,12 +127,7 @@ module Archieml
         end
 
         if scope_type == '['
-          @array = key_scope[key_bits.last] ||= []
-          @array = key_scope[key_bits.last] = [] if @array.class == String
-
-          if @array.length > 0
-            @array_type = @array.first.class == String ? 'simple' : 'complex'
-          end
+          @array = key_scope[key_bits.last] = []
 
         elsif scope_type == '{'
           @scope = key_scope[key_bits.last] = key_scope[key_bits.last].is_a?(Hash) ? key_scope[key_bits.last] : {}
@@ -139,6 +138,7 @@ module Archieml
     def flush_buffer!
       result = @buffer_string.dup
       @buffer_string = ''
+      @buffer_key = nil
       return result
     end
 
