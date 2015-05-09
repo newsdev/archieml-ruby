@@ -10,18 +10,18 @@ module Archieml
     def initialize(options = {})
       @data = @scope = {}
 
-      @buffer_scope  = @buffer_key = nil
+      @stack = []
+      @stack_scope = nil
+
+      @buffer_scope = @buffer_key = nil
       @buffer_string = ''
 
-      @is_skipping  = false
+      @is_skipping = false
       @done_parsing = false
 
       @default_options = {
-        comments: true,
-        case_sensitive: false
+        comments: false
       }.merge(options)
-
-      self.flush_scope!
     end
 
     def load(stream, options = {})
@@ -33,10 +33,10 @@ module Archieml
         if match = line.match(COMMAND_KEY)
           self.parse_command_key(match[1].downcase)
 
-        elsif !@is_skipping && (match = line.match(START_KEY)) && (!@array || @array_type != 'simple')
+        elsif !@is_skipping && (match = line.match(START_KEY)) && (!@stack_scope || @stack_scope[:array_type] != :simple)
           self.parse_start_key(match[1], match[2] || '')
 
-        elsif !@is_skipping && (match = line.match(ARRAY_ELEMENT)) && @array && @array_type != 'complex'
+        elsif !@is_skipping && (match = line.match(ARRAY_ELEMENT)) && @stack_scope && @stack_scope[:array_type] != :complex
           self.parse_array_element(match[1])
 
         elsif !@is_skipping && match = line.match(SCOPE_PATTERN)
@@ -54,18 +54,7 @@ module Archieml
     def parse_start_key(key, rest_of_line)
       self.flush_buffer!
 
-      if @array
-        @array_type ||= 'complex'
-
-        # Ignore complex keys inside simple arrays
-        return if @array_type == 'simple'
-
-        if [nil, key].include?(@array_first_key)
-          @array << (@scope = {})
-        end
-
-        @array_first_key ||= key
-      end
+      self.increment_array_element(key)
 
       @buffer_key = key
       @buffer_string = rest_of_line
@@ -77,16 +66,15 @@ module Archieml
     def parse_array_element(value)
       self.flush_buffer!
 
-      @array_type ||= 'simple'
+      @stack_scope[:array_type] ||= :simple
 
       # Ignore simple array elements inside complex arrays
-      return if @array_type == 'complex'
+      return if @stack_scope[:array_type] == :complex
 
-      @array << ''
-      @buffer_key = @array
+      @stack_scope[:array] << ''
       @buffer_string = value
-      self.flush_buffer_into(@array, replace: true)
-      @buffer_key = @array
+      self.flush_buffer_into(@stack_scope[:array], replace: true)
+      @buffer_key = @stack_scope[:array]
     end
 
     def parse_command_key(command)
@@ -114,24 +102,73 @@ module Archieml
 
     def parse_scope(scope_type, scope_key)
       self.flush_buffer!
-      self.flush_scope!
 
       if scope_key == ''
-        @scope = @data
+        case scope_type
+        when '{'
+          @scope = @data
+          @stack_scope = nil
+          @stack = []
+        when '['
+          # Move up a level
+          if last_stack_item = @stack.pop
+            @scope = last_stack_item[:scope] || @data
+            @stack_scope = @stack.last
+          end
+        end
 
       elsif %w([ {).include?(scope_type)
+        nesting = false
         key_scope = @data
+
+        if scope_key.match(/^\./)
+          scope_key = scope_key[1..-1]
+          self.increment_array_element(scope_key)
+          nesting = true
+          key_scope = @scope if @stack_scope
+        end
+
         key_bits  = scope_key.split('.')
         key_bits[0...-1].each do |bit|
           key_scope = key_scope[bit] ||= {}
         end
 
         if scope_type == '['
-          @array = key_scope[key_bits.last] = []
+          stack_scope_item = {
+            array: key_scope[key_bits.last] = [],
+            array_type: nil,
+            array_first_key: nil,
+            scope: @scope
+          }
+
+          if nesting
+            @stack << stack_scope_item
+          else
+            @stack = [stack_scope_item]
+          end
+          @stack_scope = @stack.last
 
         elsif scope_type == '{'
           @scope = key_scope[key_bits.last] = key_scope[key_bits.last].is_a?(Hash) ? key_scope[key_bits.last] : {}
         end
+      end
+    end
+
+    def increment_array_element(key)
+      # Special handling for arrays. If this is the start of the array, remember
+      # which key was encountered first. If this is a duplicate encounter of
+      # that key, start a new object.
+
+      if @stack_scope && @stack_scope[:array]
+        # If we're within a simple array, ignore
+        @stack_scope[:array_type] ||= :complex
+        return if @stack_scope[:array_type] == :simple
+
+        # array_first_key may be either another key, or nil
+        if @stack_scope[:array_first_key] == nil || @stack_scope[:array_first_key] == key
+          @stack_scope[:array] << (@scope = {})
+        end
+        @stack_scope[:array_first_key] ||= key
       end
     end
 
@@ -170,10 +207,6 @@ module Archieml
       end
     end
 
-    def flush_scope!
-      @array = @array_type = @array_first_key = @buffer_key = nil
-    end
-
     # type can be either :replace or :append.
     # If it's :replace, then the string is assumed to be the first line of a
     # value, and no escaping takes place.
@@ -181,6 +214,7 @@ module Archieml
     # by prepending the line with a backslash.
     # (:, [, {, *, \) surrounding the first token of any line.
     def format_value(value, type)
+      # Deprecated
       if @options[:comments]
         value.gsub!(/(?:^\\)?\[[^\[\]\n\r]*\](?!\])/, '') # remove comments
         value.gsub!(/\[\[([^\[\]\n\r]*)\]\]/, '[\1]') # [[]] => []
