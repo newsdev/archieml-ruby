@@ -169,6 +169,8 @@ aml = Archieml.load(html_aml)
 
 ## Tests
 
+Test examples are stored in a submodule. You may need to run `git submodule update --init` to fetch them.
+
 There is a full test suite using rspec. `bundle install`, and then `rspec` to execute them.
 
 ## Changelog
