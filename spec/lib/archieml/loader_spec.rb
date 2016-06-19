@@ -20,4 +20,11 @@ describe Archieml::Loader do
       aml.should == result
     end
   end
+
+  it "freeforms / ruby: Text is added to freeforms when no trailing newline is present" do
+    aml = Archieml::Loader.new.load("[+freeform]\nText")
+    aml = JSON.parse(JSON.dump(aml))
+
+    aml.should == {"freeform" => [{"type" => "text", "value" => "Text"}]}
+  end
 end
