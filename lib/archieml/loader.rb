@@ -1,11 +1,13 @@
 module Archieml
   class Loader
 
-    NEXT_LINE     = /.*((\r|\n)+)/
-    START_KEY     = /^\s*([A-Za-z0-9\-_\.]+)[ \t\r]*:[ \t\r]*(.*(?:\n|\r|$))/
+    WHITESPACE_PATTERN = "\u0000\u0009\u000A\u000B\u000C\u000D\u0020\u00A0\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u200B\u2028\u2029\u202F\u205F\u3000\uFEFF"
+    SLUG_BLACKLIST     = "#{WHITESPACE_PATTERN}\u005B\u005C\u005D\u007B\u007D\u003A"
+
+    START_KEY     = /^\s*([^#{Regexp.escape(SLUG_BLACKLIST)}]+)[ \t\r]*:[ \t\r]*(.*(?:\n|\r|$))/
     COMMAND_KEY   = /^\s*:[ \t\r]*(endskip|ignore|skip|end)(.*(?:\n|\r|$))/i
     ARRAY_ELEMENT = /^\s*\*[ \t\r]*(.*(?:\n|\r|$))/
-    SCOPE_PATTERN = /^\s*(\[|\{)[ \t\r]*([\+\.]*)[ \t\r]*([A-Za-z0-9\-_\.]*)[ \t\r]*(?:\]|\}).*?(\n|\r|$)/
+    SCOPE_PATTERN = /^\s*(\[|\{)[ \t\r]*([\+\.]*)[ \t\r]*([^#{Regexp.escape(SLUG_BLACKLIST)}]*)[ \t\r]*(?:\]|\}).*?(\n|\r|$)/
 
     def initialize(options = {})
       @data = @scope = {}
