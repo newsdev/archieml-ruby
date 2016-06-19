@@ -14,6 +14,8 @@ describe Archieml::Loader do
     aml.delete('test')
     aml.delete('result')
 
+    aml = JSON.parse(JSON.dump(aml))
+
     it "#{slug}.#{idx} #{test}" do
       aml.should == result
     end

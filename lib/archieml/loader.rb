@@ -5,7 +5,7 @@ module Archieml
     START_KEY     = /^\s*([A-Za-z0-9\-_\.]+)[ \t\r]*:[ \t\r]*(.*(?:\n|\r|$))/
     COMMAND_KEY   = /^\s*:[ \t\r]*(endskip|ignore|skip|end)(.*(?:\n|\r|$))/i
     ARRAY_ELEMENT = /^\s*\*[ \t\r]*(.*(?:\n|\r|$))/
-    SCOPE_PATTERN = /^\s*(\[|\{)[ \t\r]*([A-Za-z0-9\-_\.]*)[ \t\r]*(?:\]|\}).*?(\n|\r|$)/
+    SCOPE_PATTERN = /^\s*(\[|\{)[ \t\r]*([\+\.]*)[ \t\r]*([A-Za-z0-9\-_\.]*)[ \t\r]*(?:\]|\}).*?(\n|\r|$)/
 
     def initialize(options = {})
       @data = @scope = {}
@@ -40,10 +40,10 @@ module Archieml
           self.parse_array_element(match[1])
 
         elsif !@is_skipping && match = line.match(SCOPE_PATTERN)
-          self.parse_scope(match[1], match[2])
+          self.parse_scope(match[1], match[2], match[3])
 
         else
-          @buffer_string += line
+          self.parse_text(line)
         end
       end
 
@@ -56,11 +56,12 @@ module Archieml
 
       self.increment_array_element(key)
 
+      key = 'value' if (@stack_scope && @stack_scope[:flags].match(/\+/))
+
       @buffer_key = key
       @buffer_string = rest_of_line
 
       self.flush_buffer_into(key, replace: true)
-      @buffer_key = key
     end
 
     def parse_array_element(value)
@@ -68,13 +69,10 @@ module Archieml
 
       @stack_scope[:array_type] ||= :simple
 
-      # Ignore simple array elements inside complex arrays
-      return if @stack_scope[:array_type] == :complex
-
       @stack_scope[:array] << ''
+      @buffer_key = @stack_scope[:array]
       @buffer_string = value
       self.flush_buffer_into(@stack_scope[:array], replace: true)
-      @buffer_key = @stack_scope[:array]
     end
 
     def parse_command_key(command)
@@ -100,47 +98,59 @@ module Archieml
       self.flush_buffer!
     end
 
-    def parse_scope(scope_type, scope_key)
+    def parse_scope(scope_type, flags, scope_key)
       self.flush_buffer!
 
       if scope_key == ''
-        case scope_type
-        when '{'
-          @scope = @data
-          @stack_scope = nil
-          @stack = []
-        when '['
-          # Move up a level
-          if last_stack_item = @stack.pop
-            @scope = last_stack_item[:scope] || @data
-            @stack_scope = @stack.last
-          end
-        end
+        last_stack_item = @stack.pop
+        @scope = (last_stack_item ? last_stack_item[:scope] : @data) || @data
+        @stack_scope = @stack.last
 
       elsif %w([ {).include?(scope_type)
         nesting = false
         key_scope = @data
 
-        if scope_key.match(/^\./)
-          scope_key = scope_key[1..-1]
+        if flags.match(/^\./)
           self.increment_array_element(scope_key)
           nesting = true
           key_scope = @scope if @stack_scope
+        else
+          @scope = @data
+          @stack = []
         end
 
-        key_bits  = scope_key.split('.')
-        key_bits[0...-1].each do |bit|
-          key_scope = key_scope[bit] ||= {}
+        # Within freeforms, the `type` of nested objects and arrays is taken
+        # verbatim from the `keyScope`.
+        if @stack_scope && @stack_scope[:flags].match(/\+/)
+          parsed_scope_key = scope_key
+
+        # Outside of freeforms, dot-notation interpreted as nested data.
+        else
+          key_bits = scope_key.split('.')
+          key_bits[0...-1].each do |bit|
+            key_scope = key_scope[bit] ||= {}
+          end
+          parsed_scope_key = key_bits.last
         end
 
+        # Content of nested scopes within a freeform should be stored under "value."
+        if (@stack_scope && @stack_scope[:flags].match(/\+/) && flags.match(/\./))
+          if scope_type == '['
+            parsed_scope_key = 'value'
+          elsif scope_type == '{'
+            @scope = @scope[:value] = {}
+          end
+        end
+
+        stack_scope_item = {
+          array: nil,
+          array_type: nil,
+          array_first_key: nil,
+          flags: flags,
+          scope: @scope
+        }
         if scope_type == '['
-          stack_scope_item = {
-            array: key_scope[key_bits.last] = [],
-            array_type: nil,
-            array_first_key: nil,
-            scope: @scope
-          }
-
+          stack_scope_item[:array] = key_scope[parsed_scope_key] = []
           if nesting
             @stack << stack_scope_item
           else
@@ -149,8 +159,22 @@ module Archieml
           @stack_scope = @stack.last
 
         elsif scope_type == '{'
-          @scope = key_scope[key_bits.last] = key_scope[key_bits.last].is_a?(Hash) ? key_scope[key_bits.last] : {}
+          if nesting
+            @stack << stack_scope_item
+          else
+            @scope = key_scope[parsed_scope_key] = key_scope[parsed_scope_key].is_a?(Hash) ? key_scope[parsed_scope_key] : {}
+            @stack = [stack_scope_item]
+          end
+          @stack_scope = @stack.last
         end
+      end
+    end
+
+    def parse_text(text)
+      if @stack_scope && @stack_scope[:flags].match(/\+/) && text.match(/[^\n\r\s]/)
+        @stack_scope[:array] << { "type" => "text", "value" => text.gsub(/(^\s*)|(\s*$)/, '') }
+      else
+        @buffer_string += text
       end
     end
 
@@ -168,7 +192,12 @@ module Archieml
         if @stack_scope[:array_first_key] == nil || @stack_scope[:array_first_key] == key
           @stack_scope[:array] << (@scope = {})
         end
-        @stack_scope[:array_first_key] ||= key
+        if (@stack_scope[:flags].match(/\+/))
+          @scope[:type] = key
+          # key = 'content'
+        else
+          @stack_scope[:array_first_key] ||= key
+        end
       end
     end
 
@@ -180,11 +209,13 @@ module Archieml
     end
 
     def flush_buffer_into(key, options = {})
+      existing_buffer_key = @buffer_key
       value = self.flush_buffer!
 
       if options[:replace]
         value = self.format_value(value, :replace).sub(/^\s*/, '')
         @buffer_string = value.match(/\s*\Z/)[0]
+        @buffer_key = existing_buffer_key
       else
         value = self.format_value(value, :append)
       end
