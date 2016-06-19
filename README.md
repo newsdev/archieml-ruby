@@ -4,7 +4,7 @@ Parse Archie Markup Language (ArchieML) documents into Ruby Hashes.
 
 Read about the ArchieML specification at [archieml.org](http://archieml.org).
 
-The current version is `v0.2.0`.
+The current version is `v0.3.0`.
 
 ## Installation
 
@@ -58,7 +58,7 @@ client.authorization = flow.authorize
 
 Log into your Google account and authorize the application to access your Google Drive files.
 
-Now that you have an authenticated `client`, you can make an API call to a document saved in Drive. Create a document with some basic AML inside (such as "key: value"), save it, and note the long string of characters at the end of the URL: 
+Now that you have an authenticated `client`, you can make an API call to a document saved in Drive. Create a document with some basic AML inside (such as "key: value"), save it, and note the long string of characters at the end of the URL:
 
 `https://docs.google.com/a/nytimes.com/document/d/[FILE_ID]/edit`
 
@@ -175,6 +175,7 @@ There is a full test suite using rspec. `bundle install`, and then `rspec` to ex
 
 ## Changelog
 
+* `0.3.0` - Freeform arrays type and unicode.
 * `0.2.0` - Updated to support an updated ArchieML spec: [2015-05-09](http://archieml.org/spec/1.0/CR-20150509.html). Adds support for nested arrays.
 * `0.1.1` - More consistent handling of newlines. Fixed bugs around detecting the scope of multi-line values.
 * `0.1.0` - Initial release supporting the first version of the ArchieML spec, published [2015-03-06](http://archieml.org/spec/1.0/CR-20150306.html).
