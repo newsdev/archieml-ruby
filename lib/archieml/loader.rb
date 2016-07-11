@@ -35,10 +35,12 @@ module Archieml
         if match = line.match(COMMAND_KEY)
           self.parse_command_key(match[1].downcase)
 
-        elsif !@is_skipping && (match = line.match(START_KEY)) && (!@stack_scope || @stack_scope[:array_type] != :simple)
+        elsif !@is_skipping && (match = line.match(START_KEY)) && \
+            (!@stack_scope || @stack_scope[:array_type] != :simple)
           self.parse_start_key(match[1], match[2] || '')
 
-        elsif !@is_skipping && (match = line.match(ARRAY_ELEMENT)) && @stack_scope && @stack_scope[:array_type] != :complex
+        elsif !@is_skipping && (match = line.match(ARRAY_ELEMENT)) && @stack_scope && \
+          @stack_scope[:array] && (@stack_scope[:array_type] != :complex ) && !@stack_scope[:flags].match(/\+/)
           self.parse_array_element(match[1])
 
         elsif !@is_skipping && match = line.match(SCOPE_PATTERN)
@@ -153,6 +155,7 @@ module Archieml
         }
         if scope_type == '['
           stack_scope_item[:array] = key_scope[parsed_scope_key] = []
+          stack_scope_item[:array_type] = :freeform if flags.match(/\+/)
           if nesting
             @stack << stack_scope_item
           else
